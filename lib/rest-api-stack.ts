@@ -32,6 +32,22 @@ export class RestAPIStack extends cdk.Stack {
     });
     gameTable.grantReadWriteData(addGameFn);
 
+
+    // Lambda - Get Games By Id
+    const getGameByIdFn = new lambdanode.NodejsFunction(this, "GetGameByIdFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/getGameById.ts`,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        TABLE_NAME: gameTable.tableName,
+        REGION: "eu-west-1",
+      },
+    });
+    gameTable.grantReadData(getGameByIdFn);
+    
+
     // Lambda - Get All Games
     const getAllGamesFn = new lambdanode.NodejsFunction(this, "GetAllGamesFn", {
       architecture: lambda.Architecture.ARM_64,
@@ -45,6 +61,8 @@ export class RestAPIStack extends cdk.Stack {
       },
     });
     gameTable.grantReadData(getAllGamesFn);
+
+    
 
     // API Gateway Setup
     const api = new apig.RestApi(this, "RestAPI", {
@@ -70,5 +88,12 @@ export class RestAPIStack extends cdk.Stack {
       "GET",
       new apig.LambdaIntegration(getAllGamesFn, { proxy: true })
     );
+
+    const specificGameEndpoint = gamesEndpoint.addResource("{gameId}");
+specificGameEndpoint.addMethod(
+  "GET",
+  new apig.LambdaIntegration(getGameByIdFn, { proxy: true })
+);
+
   }
 }
