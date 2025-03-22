@@ -106,5 +106,17 @@ specificGameEndpoint.addMethod(
 This ensures that only requests with the correct API key in the x-api-key header will be accepted for these operations.
 
 
+### Summary
+I believe this project meets all the requirements up to the “Excellent (65–85%)” level in the grading criteria. It includes:
+
+A working REST API using AWS CDK, Lambda, API Gateway, and DynamoDB
+
+A DynamoDB table with a composite key and different attribute types
+
+POST and PUT endpoints that are protected by an API key
+
+A translation feature using Amazon Translate, with caching to DynamoDB to avoid repeat calls
+
+Unfortunately, I didn’t implement features like custom L2 constructs, Lambda layers, or a multi-stack setup, so the project doesn’t reach the “Outstanding” level. But I’m really happy with the progress and everything I learned while building this.
 
 
