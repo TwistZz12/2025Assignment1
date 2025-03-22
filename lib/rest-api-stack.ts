@@ -118,6 +118,20 @@ export class RestAPIStack extends cdk.Stack {
     });
 gameTable.grantReadWriteData(deleteAllGamesFn);
 
+      // Lambda - Translate Game Overview
+    const translateGameFn = new lambdanode.NodejsFunction(this, "TranslateGameFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+     entry: `${__dirname}/../lambdas/translateGame.ts`,
+     timeout: cdk.Duration.seconds(10),
+     memorySize: 128,
+     environment: {
+       TABLE_NAME: gameTable.tableName,
+       REGION: "eu-west-1",
+       },
+    });
+gameTable.grantReadWriteData(translateGameFn);
+
     
 
     // API Gateway Setup
@@ -133,6 +147,36 @@ gameTable.grantReadWriteData(deleteAllGamesFn);
         allowOrigins: ["*"],
       },
     });
+
+    // create CfnApiKey
+const rawApiKey = new apig.CfnApiKey(this, "AssignmentRawApiKey", {
+  enabled: true,
+  name: "AssignmentAPIKey",
+  value: "my-secret-api-key-2025", 
+});
+
+//  Usage Plan
+const usagePlan = new apig.UsagePlan(this, "AssignmentUsagePlan", {
+  name: "AssignmentUsagePlan",
+  apiStages: [{
+    api,
+    stage: api.deploymentStage,
+  }],
+});
+
+
+new apig.CfnUsagePlanKey(this, "AssignmentUsagePlanKey", {
+  keyId: rawApiKey.ref,
+  keyType: "API_KEY",
+  usagePlanId: usagePlan.usagePlanId,
+});
+
+//  API Key Output
+new cdk.CfnOutput(this, "RestApiKeyOutput", {
+  value: rawApiKey.value!,
+  description: "The actual API key to use in Postman or headers",
+});
+
 
     // /games endpoint
     const gamesEndpoint = api.root.addResource("games");
@@ -166,6 +210,11 @@ gameTable.grantReadWriteData(deleteAllGamesFn);
       "DELETE",
       new apig.LambdaIntegration(deleteAllGamesFn, { proxy: true })
     );
-    
+    const translationEndpoint = specificGameEndpoint.addResource("translation");
+translationEndpoint.addMethod(
+  "GET",
+  new apig.LambdaIntegration(translateGameFn, { proxy: true })
+);
+
   }
 }
