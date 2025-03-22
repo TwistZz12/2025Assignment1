@@ -2,15 +2,15 @@ import * as cdk from "aws-cdk-lib";
 import * as lambdanode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import { Construct } from "constructs";
 import * as apig from "aws-cdk-lib/aws-apigateway";
+import { Construct } from "constructs";
 
 export class RestAPIStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     // Game Table
-    const gamesTable = new dynamodb.Table(this, "GamesTable", {
+    const gameTable = new dynamodb.Table(this, "GameTable", {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: "itemType", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "itemId", type: dynamodb.AttributeType.STRING },
@@ -18,7 +18,7 @@ export class RestAPIStack extends cdk.Stack {
       tableName: "GameItems",
     });
 
-    // Lambda Function - Add Game
+    // Lambda - Add Game
     const addGameFn = new lambdanode.NodejsFunction(this, "AddGameFn", {
       architecture: lambda.Architecture.ARM_64,
       runtime: lambda.Runtime.NODEJS_18_X,
@@ -26,16 +26,29 @@ export class RestAPIStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
       memorySize: 128,
       environment: {
-        TABLE_NAME: gamesTable.tableName,
+        TABLE_NAME: gameTable.tableName,
         REGION: "eu-west-1",
       },
     });
+    gameTable.grantReadWriteData(addGameFn);
 
-    gamesTable.grantReadWriteData(addGameFn);
+    // Lambda - Get All Games
+    const getAllGamesFn = new lambdanode.NodejsFunction(this, "GetAllGamesFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/getAllGames.ts`,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        TABLE_NAME: gameTable.tableName,
+        REGION: "eu-west-1",
+      },
+    });
+    gameTable.grantReadData(getAllGamesFn);
 
-    // REST API
+    // API Gateway Setup
     const api = new apig.RestApi(this, "RestAPI", {
-      description: "Game Management API",
+      description: "Game management API",
       deployOptions: {
         stageName: "dev",
       },
@@ -47,31 +60,15 @@ export class RestAPIStack extends cdk.Stack {
       },
     });
 
-    const apiKey = new apig.ApiKey(this, "GameApiKey", {
-      description: "API Key for protected game endpoints",
-      enabled: true,
-    });
-
-    const usagePlan = new apig.UsagePlan(this, "GameUsagePlan", {
-      name: "GameUsagePlan",
-      apiStages: [
-        {
-          api,
-          stage: api.deploymentStage,
-        },
-      ],
-    });
-
-    usagePlan.addApiKey(apiKey);
-
     // /games endpoint
     const gamesEndpoint = api.root.addResource("games");
     gamesEndpoint.addMethod(
       "POST",
-      new apig.LambdaIntegration(addGameFn),
-      {
-        apiKeyRequired: true,
-      }
+      new apig.LambdaIntegration(addGameFn, { proxy: true })
+    );
+    gamesEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getAllGamesFn, { proxy: true })
     );
   }
 }
