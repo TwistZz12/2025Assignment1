@@ -62,6 +62,20 @@ export class RestAPIStack extends cdk.Stack {
     });
     gameTable.grantReadData(getAllGamesFn);
 
+      // Lambda - Delete Game
+  const deleteGameFn = new lambdanode.NodejsFunction(this, "DeleteGameFn", {
+    architecture: lambda.Architecture.ARM_64,
+    runtime: lambda.Runtime.NODEJS_18_X,
+    entry: `${__dirname}/../lambdas/deleteGame.ts`,
+    timeout: cdk.Duration.seconds(10),
+    memorySize: 128,
+    environment: {
+      TABLE_NAME: gameTable.tableName,
+      REGION: "eu-west-1",
+    },
+    });
+    gameTable.grantWriteData(deleteGameFn);
+
     
 
     // API Gateway Setup
@@ -90,10 +104,14 @@ export class RestAPIStack extends cdk.Stack {
     );
 
     const specificGameEndpoint = gamesEndpoint.addResource("{gameId}");
-specificGameEndpoint.addMethod(
+    specificGameEndpoint.addMethod(
   "GET",
-  new apig.LambdaIntegration(getGameByIdFn, { proxy: true })
-);
+      new apig.LambdaIntegration(getGameByIdFn, { proxy: true })
+    );
+    specificGameEndpoint.addMethod(
+  "DELETE",
+      new apig.LambdaIntegration(deleteGameFn, { proxy: true })
+    );
 
   }
 }
