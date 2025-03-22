@@ -132,6 +132,14 @@ gameTable.grantReadWriteData(deleteAllGamesFn);
     });
 gameTable.grantReadWriteData(translateGameFn);
 
+    translateGameFn.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+       actions: ["translate:TranslateText"],
+        resources: ["*"], 
+      })
+    );
+
+
     
 
     // API Gateway Setup
