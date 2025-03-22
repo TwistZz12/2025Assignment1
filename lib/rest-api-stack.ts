@@ -90,6 +90,20 @@ export class RestAPIStack extends cdk.Stack {
     });
     gameTable.grantReadWriteData(updateGameFn);
     
+    //Lambda - Patch Game
+    const patchGameFn = new lambdanode.NodejsFunction(this, "PatchGameFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/patchGame.ts`,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        TABLE_NAME: gameTable.tableName,
+        REGION: "eu-west-1",
+      },
+    });
+    gameTable.grantReadWriteData(patchGameFn);
+    
     
 
     // API Gateway Setup
@@ -129,6 +143,10 @@ export class RestAPIStack extends cdk.Stack {
     specificGameEndpoint.addMethod(
       "PUT",
       new apig.LambdaIntegration(updateGameFn, { proxy: true })
+    );
+    specificGameEndpoint.addMethod(
+      "PATCH",
+      new apig.LambdaIntegration(patchGameFn, { proxy: true })
     );
     
   }
